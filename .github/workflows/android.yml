@@ -108,17 +108,17 @@ jobs:
       - name: Экспорт APK
         run: |
           mkdir -p build
-          godot --headless --path . --export-debug "Android" build/repair-plus.apk
+          godot --headless --path . --export-debug "Android" build/iznutri.apk
           ls -lh build/
-          test -f build/repair-plus.apk
+          test -f build/iznutri.apk
 
       - name: Переименовать и проверить APK
         run: |
           mkdir -p artifacts
-          cp build/repair-plus.apk "artifacts/remont-plus-${{ github.run_number }}-debug.apk"
+          cp build/iznutri.apk "artifacts/iznutri-${{ github.run_number }}-debug.apk"
           python3 - <<'PY'
           import zipfile
-          z = zipfile.ZipFile("artifacts/remont-plus-${{ github.run_number }}-debug.apk")
+          z = zipfile.ZipFile("artifacts/iznutri-${{ github.run_number }}-debug.apk")
           names = z.namelist()
           assert "AndroidManifest.xml" in names, "нет манифеста"
           assert "assets/project.binary" in names, "нет project.binary"
@@ -131,7 +131,7 @@ jobs:
       - name: Артефакт
         uses: actions/upload-artifact@v4
         with:
-          name: remont-plus-debug-apk
+          name: iznutri-debug-apk
           path: artifacts/*.apk
           retention-days: 30
 
@@ -139,7 +139,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: apk-build-${{ github.run_number }}
-          name: Ремонт Плюс · сборка ${{ github.run_number }}
+          name: ИЗНУТРИ · сборка ${{ github.run_number }}
           body: |
             Debug-APK из коммита ${{ github.sha }}.
 
