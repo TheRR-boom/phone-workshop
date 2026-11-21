@@ -179,7 +179,8 @@ func _make_order() -> Order:
 	_next_order_id += 1
 	o.day = day
 	o.phone = _pick_phone()
-	o.fault = DB.faults[randi() % DB.faults.size()]
+	o.defect = DB.defects[randi() % DB.defects.size()]
+	o.fault = DB.fault(o.defect.fault_id)
 	o.client_type = _pick_client_type()
 	o.client_name = String(Catalog.CLIENT_NAMES[randi() % Catalog.CLIENT_NAMES.size()])
 	o.urgent = o.client_type.id == "urgent"
@@ -207,6 +208,31 @@ func _pick_client_type() -> ClientType:
 		if roll < acc:
 			return DB.client(id)
 	return DB.client("regular")
+
+
+## Приём устройства на диагностику: цена обсуждается после разборки.
+func accept_for_diagnosis(order: Order) -> bool:
+	if order == null or order.defect == null:
+		return false
+	clients.erase(order)
+	current_order = order
+	order.status = "diagnostics"
+	clients_changed.emit()
+	_queue_save()
+	return true
+
+
+## Игрок передумал / вышел: заказ возвращается на доску.
+func return_order(order: Order) -> void:
+	if order == null:
+		return
+	if current_order == order:
+		current_order = null
+	if not clients.has(order):
+		clients.push_front(order)
+	order.status = "waiting"
+	clients_changed.emit()
+	_queue_save()
 
 
 func accept_order(order: Order, quality_id: String, price: int) -> bool:
@@ -499,6 +525,7 @@ func _serialize_clients() -> Array:
 			"client": o.client_type.id,
 			"phone": o.phone.id,
 			"fault": o.fault.id,
+			"defect": o.defect.id if o.defect != null else "",
 			"urgent": o.urgent,
 		})
 	return arr
@@ -520,6 +547,9 @@ func _order_from_dict(row: Variant) -> Order:
 	o.client_type = ctype
 	o.phone = phone
 	o.fault = fault
+	o.defect = DB.defect(String(d.get("defect", "")))
+	if o.defect == null:
+		o.defect = DB.defects[0]
 	o.urgent = bool(d.get("urgent", false))
 	return o
 

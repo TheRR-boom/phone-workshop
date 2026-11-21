@@ -5,6 +5,7 @@ extends CanvasLayer
 const SCENES := {
 	"workshop": "res://scenes/workshop.tscn",
 	"order": "res://scenes/order.tscn",
+	"teardown": "res://scenes/teardown.tscn",
 	"repair": "res://scenes/repair.tscn",
 	"inventory": "res://scenes/inventory.tscn",
 	"shop": "res://scenes/shop.tscn",

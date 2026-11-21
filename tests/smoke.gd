@@ -18,6 +18,8 @@ func _ready() -> void:
 	_test_flow()
 	_test_save_load()
 	await _test_order_screen()
+	_test_device_model()
+	await _test_teardown_scene()
 	await _test_cleaning()
 	await _test_soldering()
 	await _test_ui(720, 1280, "16:9")
@@ -244,10 +246,7 @@ func _test_cleaning() -> void:
 func _test_order_screen() -> void:
 	Game._seed_new_game()
 	var order := _pick_repair_order()
-	# Фиксируем «обычного» клиента: у скандального потолок цены ниже,
-	# и рекомендованная цена может законно не проходить.
 	order.client_type = DB.client("regular")
-	Game.add_part(order.fault.part_type, "copy", order.phone.tier, 1)
 	Game.pending_order = order
 
 	var screen = load("res://scenes/order.tscn").instantiate()
@@ -255,34 +254,86 @@ func _test_order_screen() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	var correct_index := 0
-	for i in DB.faults.size():
-		if DB.faults[i].id == order.fault.id:
-			correct_index = i
-			break
-
-	screen._pick_fault(DB.faults[correct_index], screen._diag_grid.get_child(correct_index))
-	await get_tree().process_frame
-	await get_tree().process_frame
-	check(screen._diagnosed, "order: верный диагноз принят")
-	check(screen._start_btn.disabled, "order: без запчасти старт заблокирован")
-
-	screen._choose_quality("copy")
-	await get_tree().process_frame
-	await get_tree().process_frame
-	check(screen._quality_id == "copy", "order: запчасть выбрана")
-	check(not screen._start_btn.disabled, "order: кнопка старта активна")
-	check(screen._price <= screen._ceiling, "order: рекомендованная цена проходит")
-
-	# Отказ клиенту снижает репутацию и убирает его из очереди
-	var rep_before := Game.rep
-	var count_before := Game.clients.size()
-	Game.decline_order(order)
-	check(Game.rep < rep_before, "order: отказ снижает репутацию")
-	check(Game.clients.size() == count_before - 1, "order: клиент ушёл из очереди")
+	check(screen._order == order, "order: заказ открыт")
+	var has_fault_menu := false
+	for b in screen.find_children("*", "Button", true, false):
+		var t := String(b.text)
+		if t.contains("Разбит") or t.contains("Залитие") or t.contains("Батарея"):
+			has_fault_menu = true
+	check(not has_fault_menu, "order: нет меню выбора поломки")
 
 	screen.queue_free()
+	await get_tree().process_frame
 	Game.pending_order = null
+	Game.return_order(order)
+
+
+func _test_device_model() -> void:
+	var phone := DB.phone("s3")
+	var defect := DB.defect("battery_swollen")
+	var m := DeviceModel.new()
+	m.setup(phone, defect)
+
+	check(not m.remove("back_cover", "suction").ok, "device: крышка без снятия винтов запрещена")
+	check(m.unscrew("bottom_screws", 0, "torx").code == "WRONG_BIT", "device: не та бита")
+	check(m.damage == 2, "device: урон от неверной биты")
+
+	for i in m.screws_total("bottom_screws"):
+		check(m.unscrew("bottom_screws", i, "pentalobe").ok, "device: винт корпуса выкручен")
+	check(m.is_done("bottom_screws"), "device: группа винтов снята")
+	check(m.remove("back_cover", "suction").ok, "device: крышка снята")
+	check(m.is_exposed("battery"), "device: аккумулятор виден")
+
+	check(m.remove("shield_plate", "spudger").code == "SCREWS", "device: щит без винтов не снять")
+	for i in m.screws_total("shield_plate"):
+		check(m.unscrew("shield_plate", i, "torx").ok, "device: винт щита выкручен")
+	check(m.remove("shield_plate", "spudger").ok, "device: щит снят")
+
+	var ins := m.inspect("battery")
+	check(ins.ok and bool(ins["anomaly"]), "device: вздутие найдено осмотром")
+	check(m.evidence.size() == 1, "device: улика записана")
+
+	var meas := m.measure("BAT", "V")
+	check(meas.ok and bool(meas["faulty"]), "device: просадка BAT подтверждена")
+	check(not m.measure("BAT", "R").ok, "device: неверный режим прибора отклонён")
+
+	check(not m.confirm("board").ok, "device: чужой узел не подтверждается")
+	check(m.confirm("battery").ok, "device: диагноз подтверждён")
+	check(m.diagnosed, "device: флаг диагноза")
+
+
+func _test_teardown_scene() -> void:
+	Game._seed_new_game()
+	var order := _pick_repair_order()
+	order.client_type = DB.client("regular")
+	order.defect = DB.defect("battery_swollen")
+	order.fault = DB.fault("battery")
+	Game.current_order = order
+
+	var td = load("res://scenes/teardown.tscn").instantiate()
+	add_child(td)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	check(td.model != null, "teardown: модель создана")
+
+	var m: DeviceModel = td.model
+	for i in m.screws_total("bottom_screws"):
+		m.unscrew("bottom_screws", i, "pentalobe")
+	check(m.remove("back_cover", "suction").ok, "teardown: крышка снята")
+	for i in m.screws_total("shield_plate"):
+		m.unscrew("shield_plate", i, "torx")
+	check(m.remove("shield_plate", "spudger").ok, "teardown: щит снят")
+
+	m.inspect("battery")
+	td._refresh()
+	td._confirm("battery")
+	await get_tree().process_frame
+	check(td._overlay != null, "teardown: открылась смета")
+	td._close_overlay()
+	check(td._overlay == null, "teardown: смета закрывается")
+
+	Game.current_order = null
+	td.queue_free()
 	await get_tree().process_frame
 
 
@@ -340,18 +391,33 @@ func _play_repair(repair) -> void:
 	if order == null:
 		check(false, "repair: нет текущего заказа")
 		return
-	check(repair._screw_buttons.size() == order.phone.screws, "винтов столько же, сколько у модели")
 
-	for i in order.phone.screws:
-		repair._tap_screw(i, repair._screw_buttons[i])
-	await get_tree().process_frame
-	check(repair._stage == 1, "после винтов начинается замена модуля")
+	if not order.teardown_done:
+		check(repair._screw_buttons.size() == order.phone.screws, "винтов столько же, сколько у модели")
+		for i in order.phone.screws:
+			repair._tap_screw(i, repair._screw_buttons[i])
+		await get_tree().process_frame
+		check(repair._stage == 1, "после винтов начинается этап ремонта")
 
-	# Ставим деталь в гнездо и «отпускаем палец»
-	repair._module.global_position = repair._socket.global_position + (repair._socket.size - repair._module.size) * 0.5
-	repair._try_snap()
+	if repair._module != null:
+		# Замена модуля
+		repair._module.global_position = repair._socket.global_position + (repair._socket.size - repair._module.size) * 0.5
+		repair._try_snap()
+		await get_tree().process_frame
+		check(repair._module_placed, "деталь установлена")
+	elif repair._spots_left > 0:
+		# Чистка
+		for c in repair._phone_area.get_children():
+			if c is Button and c.text == "грязь":
+				repair._clean_spot(c)
+				repair._clean_spot(c)
+	elif repair._stage == 1:
+		# Пайка
+		for c in repair._phone_area.get_children():
+			if c is Button and String(c.text).ends_with("%"):
+				repair._start_solder(c)
+				repair._process(0.8)
 	await get_tree().process_frame
-	check(repair._module_placed, "деталь установлена")
 	check(repair._stage == 2, "этап проверки")
 
 	var money_before := Game.money

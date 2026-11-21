@@ -9,6 +9,10 @@ var client_name: String = ""
 var client_type: ClientType
 var phone: PhoneModel
 var fault: Fault
+## Скрытая неисправность: её находит игрок, а не меню
+var defect: Defect
+## Разборка уже выполнена на сцене teardown
+var teardown_done := false
 
 ## Выбранная запчасть (null для чистки)
 var quality: PartQuality = null
@@ -24,6 +28,11 @@ var urgent: bool = false
 
 func title() -> String:
 	return "%s · %s" % [phone.title, fault.title]
+
+
+## Жалоба клиента — это не диагноз, а только намёк.
+func complaint() -> String:
+	return defect.symptom if defect != null else fault.symptom
 
 
 func part_label() -> String:

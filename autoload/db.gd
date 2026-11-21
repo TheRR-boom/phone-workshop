@@ -10,12 +10,14 @@ var phones: Array[PhoneModel] = []
 var faults: Array[Fault] = []
 var qualities: Array[PartQuality] = []
 var clients: Array[ClientType] = []
+var defects: Array[Defect] = []
 var upgrades: Array[Dictionary] = []
 
 var phones_by_id: Dictionary = {}
 var faults_by_id: Dictionary = {}
 var qualities_by_id: Dictionary = {}
 var clients_by_id: Dictionary = {}
+var defects_by_id: Dictionary = {}
 
 
 func _ready() -> void:
@@ -23,6 +25,7 @@ func _ready() -> void:
 	_build_faults()
 	_build_qualities()
 	_build_clients()
+	_build_defects()
 	upgrades.clear()
 	for row in Catalog.UPGRADES:
 		upgrades.append(row.duplicate(true))
@@ -84,6 +87,29 @@ func _build_clients() -> void:
 		c.color = Color(String(row["color"]))
 		clients.append(c)
 		clients_by_id[c.id] = c
+
+
+func _build_defects() -> void:
+	for row in Defects.LIST:
+		var d := Defect.new()
+		d.id = String(row["id"])
+		d.title = String(row["title"])
+		d.component_id = String(row["component"])
+		d.fault_id = String(row["fault"])
+		d.symptom = String(row["symptom"])
+		d.evidence = String(row["evidence"])
+		d.test_point = String(row["test_point"])
+		d.test_mode = String(row["test_mode"])
+		d.test_normal = String(row["test_normal"])
+		d.test_faulty = String(row["test_faulty"])
+		d.repair = String(row["repair"])
+		d.color = Color(String(row["color"]))
+		defects.append(d)
+		defects_by_id[d.id] = d
+
+
+func defect(id: String) -> Defect:
+	return defects_by_id.get(id)
 
 
 func phone(id: String) -> PhoneModel:

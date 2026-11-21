@@ -35,7 +35,12 @@ func _ready() -> void:
 		Router.go("workshop")
 		return
 	_build()
-	_build_screws()
+	if _order.teardown_done:
+		_stage = 1
+		_build_module_stage()
+		_update_stage_ui()
+	else:
+		_build_screws()
 
 
 func _build() -> void:
