@@ -19,6 +19,7 @@ func _ready() -> void:
 	_test_save_load()
 	await _test_order_screen()
 	await _test_cleaning()
+	await _test_soldering()
 	await _test_ui(720, 1280, "16:9")
 	await _test_ui(720, 1560, "19.5:9")
 	await _test_ui(720, 1440, "18:9")
@@ -166,6 +167,42 @@ func _test_save_load() -> void:
 	check(Game.load_game(), "сохранение читается")
 	check(Game.money == 1234, "деньги восстановлены")
 	check(Game.rep == 77, "репутация восстановлена")
+
+
+func _test_soldering() -> void:
+	Game._seed_new_game()
+	var o := Order.new()
+	o.phone = DB.phone("s3")
+	o.fault = DB.fault("port")
+	o.client_type = DB.client("regular")
+	o.price = 1500
+	Game.current_order = o
+
+	var screen = load("res://scenes/repair.tscn").instantiate()
+	add_child(screen)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	for i in o.phone.screws:
+		screen._tap_screw(i, screen._screw_buttons[i])
+	await get_tree().process_frame
+	check(screen._stage == 1, "пайка: разборка завершена")
+
+	var pads := []
+	for c in screen._phone_area.get_children():
+		if c is Button and String(c.text).ends_with("%"):
+			pads.append(c)
+	check(pads.size() == 4, "пайка: 4 контакта")
+
+	for pad in pads:
+		screen._start_solder(pad)
+		screen._process(0.8)   # «держим палец» дольше 0.7 с
+		await get_tree().process_frame
+	check(screen._stage == 2, "пайка: все контакты припаяны")
+
+	Game.current_order = null
+	screen.queue_free()
+	await get_tree().process_frame
 
 
 func _test_cleaning() -> void:

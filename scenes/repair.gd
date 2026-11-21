@@ -23,6 +23,9 @@ var _action: Button
 var _damage_lbl: Label
 var _screw_buttons: Array[Button] = []
 var _spots_left := 0
+var _solder_btn: Button = null
+var _solder_progress := 0.0
+var _soldered := 0
 
 
 func _ready() -> void:
@@ -188,6 +191,9 @@ func _build_module_stage() -> void:
 	if _order.fault.needs_cleaning and _order.quality == null:
 		_build_cleaning_stage()
 		return
+	if _order.fault.id == "port":
+		_build_soldering_stage()
+		return
 
 	_socket = PanelContainer.new()
 	_socket.custom_minimum_size = Vector2(230, 230)
@@ -271,6 +277,60 @@ func _clean_spot(spot: Button) -> void:
 		_hint.text = "Ещё раз по этому пятну"
 
 
+func _build_soldering_stage() -> void:
+	_soldered = 0
+	var pads := [
+		Vector2(110, 250), Vector2(210, 250), Vector2(310, 250), Vector2(210, 350),
+	]
+	for i in pads.size():
+		var pad := Button.new()
+		pad.text = "0%"
+		pad.custom_minimum_size = Vector2(80, 80)
+		pad.size = Vector2(80, 80)
+		pad.position = pads[i] - Vector2(40, 40)
+		pad.focus_mode = Control.FOCUS_NONE
+		pad.add_theme_font_size_override("font_size", 20)
+		pad.add_theme_stylebox_override("normal", UI.style(Color("#5a3a1a"), 40, Color("#c98a3a"), 4))
+		pad.add_theme_stylebox_override("hover", UI.style(Color("#5a3a1a"), 40, Color("#c98a3a"), 4))
+		pad.add_theme_stylebox_override("pressed", UI.style(Color("#7a4a1a"), 40, UI.WARN, 5))
+		pad.button_down.connect(_start_solder.bind(pad))
+		pad.button_up.connect(_stop_solder)
+		_phone_area.add_child(pad)
+
+	_hint.text = "Прогрейте 4 контакта: держите палец до 100%"
+
+
+func _start_solder(pad: Button) -> void:
+	if pad.disabled:
+		return
+	_solder_btn = pad
+	_solder_progress = 0.0
+
+
+func _stop_solder() -> void:
+	if _solder_btn != null and not _solder_btn.disabled:
+		_solder_btn.text = "0%"
+	_solder_btn = null
+	_solder_progress = 0.0
+
+
+func _process(delta: float) -> void:
+	if _solder_btn == null or _stage != 1:
+		return
+	_solder_progress = minf(1.0, _solder_progress + delta / 0.7)
+	_solder_btn.text = "%d%%" % int(round(_solder_progress * 100))
+	if _solder_progress >= 1.0:
+		_solder_btn.disabled = true
+		_solder_btn.text = "OK"
+		_solder_btn = null
+		_soldered += 1
+		_hint.text = "Припаяно %d из 4" % _soldered
+		if _soldered >= 4:
+			_hint.text = "Разъём припаян"
+			_stage = 2
+			_update_stage_ui()
+
+
 func _input(event: InputEvent) -> void:
 	if _stage != 1 or _module == null or _module_placed:
 		return
@@ -334,6 +394,9 @@ func _update_stage_ui() -> void:
 			if _order.fault.needs_cleaning and _order.quality == null:
 				_stage_label.text = "ШАГ 2 ИЗ 3 · ЧИСТКА"
 				_action.text = "Очистите плату"
+			elif _order.fault.id == "port":
+				_stage_label.text = "ШАГ 2 ИЗ 3 · ПАЙКА"
+				_action.text = "Припаяйте 4 контакта"
 			else:
 				_stage_label.text = "ШАГ 2 ИЗ 3 · ЗАМЕНА МОДУЛЯ"
 				_action.text = "Установите модуль в гнездо"
