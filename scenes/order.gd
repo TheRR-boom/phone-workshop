@@ -280,7 +280,13 @@ func _build_price() -> void:
 
 	_min_price = maxi(int(round(cost * 0.9)), 100)
 	_max_price = maxi(int(round(_ceiling * 1.2)), _min_price + 100)
-	_price = clampi(Econ.suggested_price(_order.phone, _order.fault, Game.rep), _min_price, _max_price)
+	# Стартовая цена обязана проходить: иначе игрок видит заблокированную
+	# кнопку ещё до того, как успел что-то выбрать.
+	var suggested := mini(
+		Econ.suggested_price(_order.phone, _order.fault, Game.rep),
+		int(round(_ceiling * 0.95))
+	)
+	_price = clampi(suggested, _min_price, _max_price)
 
 	_price_section.add_child(_section_title("ЦЕНА РАБОТЫ"))
 

@@ -31,10 +31,11 @@ static func client_ceiling(phone: PhoneModel, fault: Fault, client: ClientType, 
 	return int(round(market * mood * rep_bonus))
 
 
-## Рекомендованная цена — с наценкой 10–15 %.
+## Рекомендованная цена: чуть ниже рынка на старте, растёт с репутацией.
+## Важно, чтобы она проходила потолок обычного клиента (см. client_ceiling).
 static func suggested_price(phone: PhoneModel, fault: Fault, rep: int) -> int:
 	var market := float(market_price(phone, fault))
-	return int(round(market * (1.05 + float(rep) / 1000.0)))
+	return int(round(market * (0.95 + float(rep) / 1000.0)))
 
 
 ## Реакция клиента на названную цену: текст и цвет для UI.

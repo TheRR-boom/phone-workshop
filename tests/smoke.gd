@@ -244,6 +244,9 @@ func _test_cleaning() -> void:
 func _test_order_screen() -> void:
 	Game._seed_new_game()
 	var order := _pick_repair_order()
+	# Фиксируем «обычного» клиента: у скандального потолок цены ниже,
+	# и рекомендованная цена может законно не проходить.
+	order.client_type = DB.client("regular")
 	Game.add_part(order.fault.part_type, "copy", order.phone.tier, 1)
 	Game.pending_order = order
 
