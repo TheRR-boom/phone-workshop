@@ -1,10 +1,14 @@
 # Godot 4
 .godot/
-*.import
-.import/
-export.cfg
-export_presets.cfg
-*.translation
+
+# Сборки и подписи
+build/
+*.apk
+*.aab
+*.pck
+*.idsig
+debug.keystore
+*.keystore
 
 # OS / IDE
 .DS_Store
@@ -12,9 +16,3 @@ Thumbs.db
 *.swp
 .vscode/
 .idea/
-
-# Сборки
-build/
-*.apk
-*.aab
-*.pck

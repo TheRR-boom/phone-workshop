@@ -40,6 +40,28 @@ godot --headless --path . res://tests/smoke.tscn
 godot --path . res://tests/shot.tscn
 ```
 
+## Сборка APK
+
+APK собирается в GitHub Actions (`.github/workflows/android.yml`) на каждый
+push в `main`: Godot + шаблоны экспорта + Android SDK, прогон headless-тестов,
+`--export-debug`, подпись отладочным ключом. Готовый файл — в артефактах
+запуска и в релизе `apk-build-N`.
+
+Локально:
+
+```bash
+# 1. шаблоны экспорта Godot 4.7.2 → ~/.local/share/godot/export_templates/4.7.2.stable
+# 2. Android SDK + JDK 17, пути в Editor Settings → Export → Android
+keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android \
+  -keystore debug.keystore -storepass android \
+  -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+godot --headless --path . --import
+godot --headless --path . --export-debug "Android" build/repair-plus.apk
+```
+
+`export_presets.cfg` уже в репозитории: пакет `com.repairplus.game`,
+arm64-v8a, immersive mode, без интернета.
+
 ## Структура
 
 ```
